@@ -206,7 +206,7 @@ if __name__ == '__main__':
     CLIENT = mqtt.Client()
     CLIENT.on_connect = on_connect
     CLIENT.on_message = on_message
-    CLIENT.connect("192.168.1.133", 1883, 60)
+    CLIENT.connect("192.168.1.xxx", 1883, 60)
     CLIENT.loop_start()
 
     # give network time to startup - hack?
