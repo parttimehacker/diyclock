@@ -10,13 +10,16 @@ from threading import Lock
 
 import paho.mqtt.client as mqtt
 
-from Adafruit_Python_GPIO.Adafruit_GPIO import GPIO
+from Adafruit_GPIO import GPIO
+from Adafruit_LED_Backpack import BicolorMatrix8x8
 
-from ledclock import *
-from ledmatrix8x8 import *
+import ledclock
+
+import led8x8controller
 
 class MqttTopicConfiguration:
     """ motion_topic to avoid global PEP8 """
+
     def __init__(self):
         """ create two topics for this application """
         self.setup_topic = "diyhas/" + socket.gethostname() + "/setup"
@@ -36,6 +39,7 @@ MOTION_TOPIC = MqttTopicConfiguration()
 
 class MotionController:
     """ motion detection device driver """
+
     def __init__(self, pin):
         """ capture interrupts on pin 17  """
         self.gpio = GPIO.get_platform_gpio()
@@ -78,18 +82,25 @@ class AlarmController:
         self.gpio.output(self.pin, GPIO.LOW)
 
     def sound_alarm(self, turn_on):
+        """ turn power to piexo on or off """
         if turn_on:
             self.gpio.output(self.pin, GPIO.HIGH)
         else:
             self.gpio.output(self.pin, GPIO.LOW)
 
+    def reset(self,):
+        """ turn power to piexo off """
+        self.gpio.output(self.pin, GPIO.LOW)
+
 # create lock to coordinate I2C communication and start displays
 BUSLOCK = Lock()
 
-CLOCK = LedClock(BUSLOCK)
+CLOCK = ledclock.LedClock(BUSLOCK)
 CLOCK.run()
 
-MATRIX = LedMatrix8x8(BUSLOCK)
+DISPLAY = BicolorMatrix8x8.BicolorMatrix8x8()
+
+MATRIX = led8x8controller.Led8x8Controller(DISPLAY, BUSLOCK)
 MATRIX.run()
 
 ALARM = AlarmController(4)
@@ -107,15 +118,15 @@ class TimedEvents:
         self.day = day
         self.lights_are_on = True
 
-    def control_lights(self,switch):
+    def control_lights(self, switch):
         """ dim lights at night or turn up during the day """
         if switch == "Turn On":
             CLOCK.set_brightness(15)
-            MATRIX.set_mode(FIBINACCI_MODE)
+            MATRIX.set_mode(led8x8controller.FIBONACCI_MODE)
             self.lights_are_on = True
         else:
             CLOCK.set_brightness(2)
-            MATRIX.set_mode(IDLE_MODE)
+            MATRIX.set_mode(led8x8controller.IDLE_MODE)
             self.lights_are_on = False
 
     def check_for_timed_events(self,):
@@ -131,9 +142,9 @@ class TimedEvents:
             if not self.lights_are_on:
                 self.control_lights("Turn On")
 
-DAY_DEFAULT = datetime.time(5,1)
-NIGHT_DEFAULT = datetime.time(21,1)
-TIMER = TimedEvents(DAY_DEFAULT,NIGHT_DEFAULT)
+DAY_DEFAULT = datetime.time(5, 1)
+NIGHT_DEFAULT = datetime.time(21, 1)
+TIMER = TimedEvents(DAY_DEFAULT, NIGHT_DEFAULT)
 
 def system_message(msg):
     """ process system messages"""
@@ -141,28 +152,28 @@ def system_message(msg):
     if msg.topic == 'diyhas/system/fire':
         if msg.payload == b'ON':
             print("fire ON")
-            MATRIX.set_mode(FIRE_MODE)
+            MATRIX.set_mode(led8x8controller.FIRE_MODE)
             ALARM.sound_alarm(True)
         else:
             print("fire OFF")
-            MATRIX.set_mode(FIBINACCI_MODE, True)
+            MATRIX.set_mode(led8x8controller.FIBONACCI_MODE, True)
             ALARM.sound_alarm(False)
     elif msg.topic == 'diyhas/system/panic':
         if msg.payload == b'ON':
             print("panic ON")
-            MATRIX.set_mode(PANIC_MODE)
+            MATRIX.set_mode(led8x8controller.PANIC_MODE)
             ALARM.sound_alarm(True)
         else:
             print("panic OFF")
-            MATRIX.set_mode(FIBINACCI_MODE, True)
+            MATRIX.set_mode(led8x8controller.FIBONACCI_MODE, True)
             ALARM.sound_alarm(False)
     elif msg.topic == 'diyhas/system/who':
         if msg.payload == b'ON':
             print("who ON")
-            CLOCK.set_mode(WHO_MODE)
+            CLOCK.set_mode(ledclock.WHO_MODE)
         else:
             print("who OFF")
-            CLOCK.set_mode(TIME_MODE)
+            CLOCK.set_mode(ledclock.TIME_MODE)
     elif msg.topic == MOTION_TOPIC.get_setup():
         print("motion topic=", msg.topic, " payload=", msg.payload)
         topic = msg.payload.decode('utf-8') + "/motion"
@@ -183,7 +194,8 @@ TOPIC_DISPATCH_DICTIONARY = {
 
 
 # The callback for when the client receives a CONNACK response from the server.
-def on_connect(client, userdata, flags, rc):
+# def on_connect(client, userdata, flags, rc):
+def on_connect(client):
     """ Subscribing in on_connect() means that if we lose the connection and
         reconnect then subscriptions will be renewed. """
     client.subscribe("diyhas/system/fire", 1)
@@ -193,7 +205,8 @@ def on_connect(client, userdata, flags, rc):
 
 
 # The callback for when a PUBLISH message is received from the server.
-def on_message(client, userdata, msg):
+# def on_message(client, userdata, msg):
+def on_message(msg):
     """ dispatch to the appropriate MQTT topic handler """
     TOPIC_DISPATCH_DICTIONARY[msg.topic]["method"](msg)
 
@@ -206,7 +219,7 @@ if __name__ == '__main__':
     CLIENT = mqtt.Client()
     CLIENT.on_connect = on_connect
     CLIENT.on_message = on_message
-    CLIENT.connect("192.168.1.xxx", 1883, 60)
+    CLIENT.connect("192.168.1.133", 1883, 60)
     CLIENT.loop_start()
 
     # give network time to startup - hack?
