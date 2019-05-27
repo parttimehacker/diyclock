@@ -195,7 +195,7 @@ TOPIC_DISPATCH_DICTIONARY = {
 
 # The callback for when the client receives a CONNACK response from the server.
 # def on_connect(client, userdata, flags, rc):
-def on_connect(client):
+def on_connect(client, userdata, flags, rc):
     """ Subscribing in on_connect() means that if we lose the connection and
         reconnect then subscriptions will be renewed. """
     client.subscribe("diyhas/system/fire", 1)
@@ -206,7 +206,7 @@ def on_connect(client):
 
 # The callback for when a PUBLISH message is received from the server.
 # def on_message(client, userdata, msg):
-def on_message(msg):
+def on_message(client, userdata, msg):
     """ dispatch to the appropriate MQTT topic handler """
     TOPIC_DISPATCH_DICTIONARY[msg.topic]["method"](msg)
 
