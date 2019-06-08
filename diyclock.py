@@ -195,19 +195,22 @@ TOPIC_DISPATCH_DICTIONARY = {
 
 # The callback for when the client receives a CONNACK response from the server.
 # def on_connect(client, userdata, flags, rc):
-def on_connect(client):
+def on_connect(client, userdata, flags, rc):
     """ Subscribing in on_connect() means that if we lose the connection and
         reconnect then subscriptions will be renewed. """
     client.subscribe("diyhas/system/fire", 1)
     client.subscribe("diyhas/system/panic", 1)
     client.subscribe("diyhas/system/who", 1)
     client.subscribe(MOTION_TOPIC.get_setup(), 1)
+    client.subscribe("diyhas/+/+/motion", 1)
 
 
 # The callback for when a PUBLISH message is received from the server.
 # def on_message(client, userdata, msg):
-def on_message(msg):
+def on_message(client, userdata, msg):
     """ dispatch to the appropriate MQTT topic handler """
+    if "motion" in msg.topic:
+        MATRIX.set_mode(led8x8controller.MOTION_MODE, option=msg.topic)
     TOPIC_DISPATCH_DICTIONARY[msg.topic]["method"](msg)
 
 MOTION = MotionController(17)

@@ -7,7 +7,7 @@ from threading import Thread
 import led8x8idle
 import led8x8flash
 import led8x8fibonacci
-# import led8x8prime
+import led8x8motion
 import led8x8wopr
 import led8x8life
 
@@ -24,7 +24,7 @@ PANIC_MODE = 2
 FIBONACCI_MODE = 3
 WOPR_MODE = 4
 LIFE_MODE = 5
-# PRIME_MODE = 6
+MOTION_MODE = 6
 
 class ModeController:
     """ control changing modes. note Fire and Panic are externally controlled. """
@@ -83,7 +83,7 @@ class Led8x8Controller:
         self.fire = led8x8flash.Led8x8Flash(self.matrix8x8, self.bus_lock, RED)
         self.panic = led8x8flash.Led8x8Flash(self.matrix8x8, self.bus_lock, YELLOW)
         self.fib = led8x8fibonacci.Led8x8Fibonacci(self.matrix8x8, self.bus_lock)
-        # self.prime = led8x8prime.Led8x8Prime(self.matrix8x8, self.bus_lock)
+        self.motion = led8x8motion.Led8x8Motion(self.matrix8x8, self.bus_lock)
         self.wopr = led8x8wopr.Led8x8Wopr(self.matrix8x8, self.bus_lock)
         self.life = led8x8life.Led8x8Life(self.matrix8x8, self.bus_lock)
 
@@ -104,15 +104,17 @@ class Led8x8Controller:
                 self.panic.display()
             elif mode == FIBONACCI_MODE:
                 self.fib.display()
-            # elif mode == PRIME_MODE:
-            #    self.prime.display()
+            elif mode == MOTION_MODE:
+                self.motion.display()
+                if self.motion.motions == 0:
+                	self.restore_mode()
             elif mode == WOPR_MODE:
                 self.wopr.display()
             elif mode == LIFE_MODE:
                 self.life.display()
             self.mode_controller.evaluate()
 
-    def set_mode(self, mode, override=False):
+    def set_mode(self, mode, override=False, option=""):
         """ set display mode """
         if override:
             self.mode_controller.set(mode)
@@ -120,6 +122,9 @@ class Led8x8Controller:
         if current_mode == FIRE_MODE or current_mode == PANIC_MODE:
             return
         self.mode_controller.set(mode)
+        if mode == MOTION_MODE:
+            self.motion.motion_detected(option)
+
 
     def restore_mode(self,):
         """ return to last mode; usually after idle, fire or panic """
