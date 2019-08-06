@@ -16,18 +16,14 @@ RED = 2
 class Led8x8Wopr:
     """ WOPR pattern based on the movie Wargames """
 
-    def __init__(self, matrix8x8, lock):
+    def __init__(self, matrix8x8):
         """ create initial conditions and saving display and I2C lock """
-        self.bus_lock = lock
-        self.bus_lock.acquire(True)
         self.matrix = matrix8x8
         self.matrix.set_brightness(BRIGHTNESS)
-        self.bus_lock.release()
 
     def reset(self,):
         """ initialize to starting state and set brightness """
-        self.bus_lock.acquire(True)
-        self.bus_lock.release()
+        self.matrix.set_brightness(BRIGHTNESS)
 
     def output_row(self, start, finish, color):
         """ display a section of WOPR based on starting and ending rows """
@@ -42,14 +38,12 @@ class Led8x8Wopr:
     def display(self,):
         """ display the series as a 64 bit image with alternating colored pixels """
         time.sleep(UPDATE_RATE_SECONDS)
-        self.bus_lock.acquire(True)
         self.output_row(0, 1, RED)
         self.output_row(1, 2, YELLOW)
         self.output_row(2, 4, RED)
         self.output_row(4, 5, YELLOW)
         self.output_row(5, 8, RED)
         self.matrix.write_display()
-        self.bus_lock.release()
 
 if __name__ == '__main__':
     exit()

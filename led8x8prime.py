@@ -15,27 +15,23 @@ PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67
 class Led8x8Prime:
     """ Prime numbers less than 256 display on an 8x8 matrix """
 
-    def __init__(self, matrix8x8, lock):
+    def __init__(self, matrix8x8):
         """ create the prime object """
         self.matrix = matrix8x8
-        self.bus_lock = lock
         self.index = 0
         self.row = 0
         self.iterations = 0
 
     def reset(self,):
         """ initialize and start the prime number display """
-        self.bus_lock.acquire(True)
         self.index = 0
         self.row = 0
         self.iterations = 0
         self.matrix.set_brightness(BRIGHTNESS)
-        self.bus_lock.release()
 
     def display(self,):
         """ display primes up to the max for 8 bits """
         time.sleep(UPDATE_RATE_SECONDS)
-        self.bus_lock.acquire(True)
         self.matrix.clear()
         # cycle through the primes
         self.index += 1
@@ -59,7 +55,6 @@ class Led8x8Prime:
             else:
                 self.matrix.set_pixel(row, xpixel, self.iterations)
         self.matrix.write_display()
-        self.bus_lock.release()
 
 if __name__ == '__main__':
     exit()

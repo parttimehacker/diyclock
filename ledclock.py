@@ -100,9 +100,8 @@ class CountdownDisplay:
 class LedClock:
     """ LED seven segment display object """
 
-    def __init__(self, lock):
+    def __init__(self,):
         """Create display instance on default I2C address (0x70) and bus number"""
-        self.bus_lock = lock
         self.display = SevenSegment.SevenSegment(address=0x71)
         # Initialize the display. Must be called once before using the display.
         self.display.begin()
@@ -120,14 +119,12 @@ class LedClock:
         """ print "started timeUpdateThread """
         while True:
             time.sleep(1.0)
-            self.bus_lock.acquire(True)
             if self.mode == TIME_MODE:
                 self.clock.display()
             elif self.mode == COUNT_MODE:
                 self.count.display()
             else:
                 self.who.display()
-            self.bus_lock.release()
 
     def set_mode(self, mode):
         """ set alarm indicator """
@@ -148,27 +145,21 @@ class LedClock:
         """ set brightness in range from 1 to 15 """
         # print("set brightness="+str(val))
         self.brightness = val
-        self.bus_lock.acquire(True)
         self.display.set_brightness(self.brightness)
-        self.bus_lock.release()
 
     def increase_brightness(self,):
         """ increase brightness by 1 """
         self.brightness = self.brightness + 1
         if self.brightness > 15:
             self.brightness = 15
-        self.bus_lock.acquire(True)
         self.display.set_brightness(self.brightness)
-        self.bus_lock.release()
 
     def decrease_brightness(self,):
         """ decrease brightness by 1 """
         self.brightness = self.brightness - 1
         if self.brightness < 0:
             self.brightness = 0
-        self.bus_lock.acquire(True)
         self.display.set_brightness(self.brightness)
-        self.bus_lock.release()
 
     def run(self,):
         """ start the clock thread """

@@ -6,8 +6,6 @@ import datetime
 import socket
 import queue
 
-from threading import Lock
-
 import paho.mqtt.client as mqtt
 
 from Adafruit_GPIO import GPIO
@@ -92,15 +90,12 @@ class AlarmController:
         """ turn power to piexo off """
         self.gpio.output(self.pin, GPIO.LOW)
 
-# create lock to coordinate I2C communication and start displays
-BUSLOCK = Lock()
-
-CLOCK = ledclock.LedClock(BUSLOCK)
+CLOCK = ledclock.LedClock()
 CLOCK.run()
 
 DISPLAY = BicolorMatrix8x8.BicolorMatrix8x8()
 
-MATRIX = led8x8controller.Led8x8Controller(DISPLAY, BUSLOCK)
+MATRIX = led8x8controller.Led8x8Controller(DISPLAY)
 MATRIX.run()
 
 ALARM = AlarmController(4)
@@ -204,6 +199,11 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe(MOTION_TOPIC.get_setup(), 1)
     client.subscribe("diyhas/+/+/motion", 1)
 
+def on_disconnect(client, userdata, rc):
+    logging.info("disconnecting reason  "  +str(rc))
+    client.connected_flag=False
+    client.disconnect_flag=True
+
 
 # The callback for when a PUBLISH message is received from the server.
 # def on_message(client, userdata, msg):
@@ -221,6 +221,7 @@ if __name__ == '__main__':
 
     CLIENT = mqtt.Client()
     CLIENT.on_connect = on_connect
+    CLIENT.on_disconnect = on_disconnect
     CLIENT.on_message = on_message
     CLIENT.connect("192.168.1.133", 1883, 60)
     CLIENT.loop_start()
@@ -234,5 +235,6 @@ if __name__ == '__main__':
         time.sleep(0.5)
         if MOTION.detected():
             VALUE = MOTION.get_motion()
-            CLIENT.publish(MOTION_TOPIC.get_motion(), VALUE, 0, True)
+            TOPIC = MOTION_TOPIC.get_motion()
+            CLIENT.publish(TOPIC, VALUE, 0, True)
         TIMER.check_for_timed_events()

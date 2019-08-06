@@ -18,10 +18,8 @@ RED = 2
 class Led8x8Motion:
     """ Display motion in various rooms of the house """
 
-    def __init__(self, matrix8x8, lock):
+    def __init__(self, matrix8x8):
         """ create initial conditions and saving display and I2C lock """
-        self.bus_lock = lock
-        self.bus_lock.acquire(True)
         self.matrix = matrix8x8
         self.matrix.begin()
         self.matrix.set_brightness(BRIGHTNESS)
@@ -30,7 +28,6 @@ class Led8x8Motion:
         self.dispatch = {}
         self.motions = 0
         self.reset()
-        self.bus_lock.release()
 
     def draw_two(self, color, row, column):
         """ display a small room or area """
@@ -68,7 +65,6 @@ class Led8x8Motion:
     def display(self,):
         ''' display the series as a 64 bit image with alternating colored pixels '''
         time.sleep(UPDATE_RATE_SECONDS)
-        self.bus_lock.acquire(True)
         self.matrix_draw.rectangle((0, 0, 7, 7), outline=(0, 0, 0), fill=(0, 0, 0))
         self.motions = 0
         for key in self.dispatch:
@@ -92,16 +88,13 @@ class Led8x8Motion:
                 self.dispatch[key]["seconds"] = 0
         self.matrix.set_image(self.matrix_image)
         self.matrix.write_display()
-        self.bus_lock.release()
 
     def motion_detected(self, topic):
         ''' set timer to countdown occupancy '''
-        self.bus_lock.acquire(True)
         for key in self.dispatch:
             if key == topic:
                 self.dispatch[key]["seconds"] = 60
                 # print("motion_detected topic=",topic)
-        self.bus_lock.release()
 
 if __name__ == '__main__':
     exit()

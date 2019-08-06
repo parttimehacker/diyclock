@@ -17,10 +17,8 @@ RED = 2
 class Led8x8Life:
     """ Game of Life pattern based on john Conway """
 
-    def __init__(self, matrix8x8, lock):
+    def __init__(self, matrix8x8):
         """ create initial conditions and saving display and I2C lock """
-        self.bus_lock = lock
-        self.bus_lock.acquire(True)
         self.matrix = matrix8x8
         self.matrix.set_brightness(BRIGHTNESS)
         self.current_gen = [[0 for x in range(8)] for y in range(8)]
@@ -35,7 +33,6 @@ class Led8x8Life:
             4: self.oscilator3,
             5: self.toad
         }
-        self.bus_lock.release()
 
     def glider(self,):
         """ initialize to starting state and set brightness """
@@ -99,14 +96,11 @@ class Led8x8Life:
 
     def spawn(self,):
         """ initialize to starting state and set brightness """
-        self.bus_lock.acquire(True)
         self.dispatch[self.pattern]()
         self.pattern_switch_time = time.time()
         self.pattern += 1
         if self.pattern > 5:
             self.pattern = 0
-        self.bus_lock.release()
-
 
     def reset(self,):
         """ initialize to starting state and set brightness """
@@ -120,7 +114,6 @@ class Led8x8Life:
 
     def draw(self,):
         """ display a section of WOPR based on starting and ending rows """
-        self.bus_lock.acquire(True)
         for xpixel in range(8):
             for ypixel in range(8):
                 color = BLACK
@@ -132,7 +125,6 @@ class Led8x8Life:
                     color = YELLOW
                 self.matrix.set_pixel(xpixel, ypixel, color)
         self.matrix.write_display()
-        self.bus_lock.release()
 
     def age(self,):
         """ ensure that the returned coordinate is between 0 and 7 """
@@ -166,10 +158,8 @@ class Led8x8Life:
                     if self.current_gen[i][j] != 0:
                         early_spawn = False
         if early_spawn:
-            self.bus_lock.acquire(True)
             self.matrix.clear()
             self.matrix.write_display()
-            self.bus_lock.release()
             self.spawn()
             time.sleep(1)
 
