@@ -93,7 +93,7 @@ class AlarmController:
 CLOCK = ledclock.LedClock()
 CLOCK.run()
 
-DISPLAY = BicolorMatrix8x8.BicolorMatrix8x8()
+DISPLAY = BicolorMatrix8x8.BicolorMatrix8x8(address=0x71)
 
 MATRIX = led8x8controller.Led8x8Controller(DISPLAY)
 MATRIX.run()
@@ -169,6 +169,12 @@ def system_message(msg):
         else:
             print("who OFF")
             CLOCK.set_mode(ledclock.TIME_MODE)
+    elif msg.topic == 'diyhas/system/security':
+        print(msg.topic, msg.payload)
+        if msg.payload == b'ON':
+            MATRIX.set_security("ON")
+        else:
+            MATRIX.set_security("OFF")
     elif msg.topic == MOTION_TOPIC.get_setup():
         print("motion topic=", msg.topic, " payload=", msg.payload)
         topic = msg.payload.decode('utf-8') + "/motion"
@@ -177,6 +183,8 @@ def system_message(msg):
 
 # use a dispatch model for the subscriptions
 TOPIC_DISPATCH_DICTIONARY = {
+    "diyhas/system/security":
+        {"method":system_message},
     "diyhas/system/fire":
         {"method":system_message},
     "diyhas/system/panic":
@@ -193,6 +201,7 @@ TOPIC_DISPATCH_DICTIONARY = {
 def on_connect(client, userdata, flags, rc):
     """ Subscribing in on_connect() means that if we lose the connection and
         reconnect then subscriptions will be renewed. """
+    client.subscribe("diyhas/system/security", 1)
     client.subscribe("diyhas/system/fire", 1)
     client.subscribe("diyhas/system/panic", 1)
     client.subscribe("diyhas/system/who", 1)
@@ -223,7 +232,7 @@ if __name__ == '__main__':
     CLIENT.on_connect = on_connect
     CLIENT.on_disconnect = on_disconnect
     CLIENT.on_message = on_message
-    CLIENT.connect("192.168.1.133", 1883, 60)
+    CLIENT.connect("192.168.1.17", 1883, 60)
     CLIENT.loop_start()
 
     # give network time to startup - hack?

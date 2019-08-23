@@ -31,9 +31,17 @@ class ModeController:
 
     def __init__(self,):
         """ create mode control variables """
+        self.security_enabled = "OFF"
         self.current_mode = FIBONACCI_MODE
         self.last_mode = LIFE_MODE
         self.start_time = time.time()
+
+    def set_security(self,state):
+        self.security_enabled = state
+        print("security mode changed = ", self.security_enabled)
+
+    def get_security(self,):
+        return self.security_enabled
 
     def set(self, mode):
         """ set or override the mode """
@@ -98,7 +106,7 @@ class Led8x8Controller:
             elif mode == MOTION_MODE:
                 self.motion.display()
                 if self.motion.motions == 0:
-                	self.restore_mode()
+                    self.restore_mode()
             elif mode == WOPR_MODE:
                 self.wopr.display()
             elif mode == LIFE_MODE:
@@ -112,10 +120,20 @@ class Led8x8Controller:
         current_mode = self.mode_controller.get()
         if current_mode == FIRE_MODE or current_mode == PANIC_MODE:
             return
-        self.mode_controller.set(mode)
         if mode == MOTION_MODE:
+            print("motion detected", option)
+            if self.mode_controller.get_security() == "ON":
+                print("set motion mode")
+                self.mode_controller.set(MOTION_MODE)
             self.motion.motion_detected(option)
+        else:
+            self.mode_controller.set(mode)
 
+    def set_security(self,state):
+        self.mode_controller.set_security(state)
+
+    def get_security(self,state):
+        return self.mode_controller.get_security()
 
     def restore_mode(self,):
         """ return to last mode; usually after idle, fire or panic """
