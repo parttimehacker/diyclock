@@ -2,7 +2,7 @@
 #
 # import required python libraries
 
-echo "Install Mqtt and psutil"
+echo "Install Mqtt, psutil, pylint and screen"
 sudo pip3 install paho-mqtt
 sudo pip3 install psutil
 sudo pip3 install pylint
@@ -13,7 +13,7 @@ git clone https://github.com/adafruit/Adafruit_Python_GPIO.git
 cd Adafruit_Python_GPIO
 sudo python3 setup.py install
 cd ..
-git clone https://github.com/adafruit/Adafruit_Python_SSD1306.git
-cd Adafruit_Python_SSD1306
+git clone https://github.com/adafruit/Adafruit_Python_LED_Backpack.git 
+cd Adafruit_Python_LED_Backpack
 sudo python3 setup.py install
 cd ..
