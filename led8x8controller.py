@@ -3,6 +3,8 @@
 
 import time
 from threading import Thread
+import logging
+import logging.config
 
 import led8x8idle
 import led8x8flash
@@ -26,6 +28,13 @@ WOPR_MODE = 4
 LIFE_MODE = 5
 MOTION_MODE = 6
 
+logging.config.fileConfig(fname='logging.ini', disable_existing_loggers=False)
+
+# Get the logger specified in the file
+LOGGER = logging.getLogger(__name__)
+
+LOGGER.info('Application started')
+
 class ModeController:
     """ control changing modes. note Fire and Panic are externally controlled. """
 
@@ -38,7 +47,6 @@ class ModeController:
 
     def set_security(self,state):
         self.security_enabled = state
-        print("security mode changed = ", self.security_enabled)
 
     def get_security(self,):
         return self.security_enabled
@@ -89,7 +97,6 @@ class Led8x8Controller:
     def reset(self,):
         """ initialize to starting state and set brightness """
         mode = self.mode_controller.get()
-        print("reset() mode=", mode)
 
     def display_thread(self,):
         """ display the series as a 64 bit image with alternating colored pixels """
@@ -121,9 +128,8 @@ class Led8x8Controller:
         if current_mode == FIRE_MODE or current_mode == PANIC_MODE:
             return
         if mode == MOTION_MODE:
-            print("motion detected", option)
+            # print("motion detected", option)
             if self.mode_controller.get_security() == "ON":
-                print("set motion mode")
                 self.mode_controller.set(MOTION_MODE)
             self.motion.motion_detected(option)
         else:

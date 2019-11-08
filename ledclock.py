@@ -6,6 +6,9 @@ import datetime
 from threading import Thread
 import socket
 
+import logging
+import logging.config
+
 from Adafruit_Python_LED_Backpack.Adafruit_LED_Backpack import SevenSegment
 
 TIME_MODE = 0
@@ -13,6 +16,13 @@ WHO_MODE = 1
 COUNT_MODE = 2
 
 MAXIMUM_COUNT = 9999
+
+logging.config.fileConfig(fname='/home/an/diyclock/logging.ini', disable_existing_loggers=False)
+
+# Get the logger specified in the file
+LOGGER = logging.getLogger(__name__)
+
+LOGGER.info('Application started')
 
 class TimeDisplay:
     """ display time """
@@ -35,20 +45,23 @@ class TimeDisplay:
     def display(self,):
         """ display time of day in 12 or 24 hour format """
         digit_string = time.strftime(self.time_format)
-        self.seven_segment.clear()
-        self.seven_segment.print_number_str(digit_string)
-        self.seven_segment.set_colon(self.colon)
-        if self.colon:
-            self.colon = False
-        else:
-            self.colon = True
-        self.seven_segment.set_decimal(3, self.alarm)
-        now = datetime.datetime.now()
-        if now.hour > 11:
-            self.seven_segment.set_decimal(1, True)
-        else:
-            self.seven_segment.set_decimal(1, False)
-        self.seven_segment.write_display()
+        try:
+            self.seven_segment.clear()
+            self.seven_segment.print_number_str(digit_string)
+            self.seven_segment.set_colon(self.colon)
+            if self.colon:
+                self.colon = False
+            else:
+                self.colon = True
+            self.seven_segment.set_decimal(3, self.alarm)
+            now = datetime.datetime.now()
+            if now.hour > 11:
+                self.seven_segment.set_decimal(1, True)
+            else:
+                self.seven_segment.set_decimal(1, False)
+            self.seven_segment.write_display()
+        except Exception as e:
+            LOGGER.error("Exception occurred", exc_info=True)
 
 class WhoDisplay:
     """ display IP address in who mode """
@@ -65,13 +78,16 @@ class WhoDisplay:
 
     def display(self,):
         """ display 3 digits of ip address """
-        self.seven_segment.clear()
-        self.seven_segment.set_brightness(15)
-        self.seven_segment.print_number_str(self.ip_address[self.iterations])
-        self.iterations += 1
-        if self.iterations >= 4:
-            self.iterations = 0
-        self.seven_segment.write_display()
+        try:
+            self.seven_segment.clear()
+            self.seven_segment.set_brightness(15)
+            self.seven_segment.print_number_str(self.ip_address[self.iterations])
+            self.iterations += 1
+            if self.iterations >= 4:
+                self.iterations = 0
+            self.seven_segment.write_display()
+        except Exception as e:
+            LOGGER.error("Exception occurred", exc_info=True)
 
 class CountdownDisplay:
     """ display countdown in countdown mode """
@@ -86,10 +102,13 @@ class CountdownDisplay:
         """ display 3 digits of ip address """
         self.iterations -= 1
         digits = '{0:d}'.format(self.iterations)
-        self.seven_segment.print_number_str(digits)
-        if self.iterations == 0:
-            self.iterations = self.max_count
-        self.seven_segment.write_display()
+        try:
+            self.seven_segment.print_number_str(digits)
+            if self.iterations == 0:
+                self.iterations = self.max_count
+            self.seven_segment.write_display()
+        except Exception as e:
+            LOGGER.error("Exception occurred", exc_info=True)
 
     def set_maximum(self, new_maximum):
         """ set a new count down maximum less than 1000 """
@@ -102,7 +121,7 @@ class LedClock:
 
     def __init__(self,):
         """Create display instance on default I2C address (0x70) and bus number"""
-        self.display = SevenSegment.SevenSegment(address=0x71)
+        self.display = SevenSegment.SevenSegment(address=0x70)
         # Initialize the display. Must be called once before using the display.
         self.display.begin()
         self.brightness = 15

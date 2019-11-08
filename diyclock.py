@@ -5,6 +5,8 @@ import time
 import datetime
 import socket
 import queue
+import logging
+import logging.config
 
 import paho.mqtt.client as mqtt
 
@@ -15,6 +17,13 @@ import ledclock
 
 import led8x8controller
 
+logging.config.fileConfig(fname='/home/an/diyclock/logging.ini', disable_existing_loggers=False)
+
+# Get the logger specified in the file
+LOGGER = logging.getLogger("diyclock")
+
+LOGGER.info('Application started')
+
 class MqttTopicConfiguration:
     """ motion_topic to avoid global PEP8 """
 
@@ -24,7 +33,6 @@ class MqttTopicConfiguration:
         self.motion_topic = ""
     def set(self, topic):
         """ the motion topic is passed to the app at startup """
-        print("set motion_topic=", topic)
         self.motion_topic = topic
     def get_setup(self,):
         """ the motion topic dynamically set """
@@ -44,6 +52,7 @@ class MotionController:
         self.queue = queue.Queue()
         self.pin = pin
         self.gpio.setup(self.pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        self.last_reading = 0
 
     def pir_interrupt_handler(self, gpio):
         """ motion interrupt handler sends 1 or 0 to queue """
@@ -52,7 +61,9 @@ class MotionController:
             message = "1"
         else:
             message = "0"
-        self.queue.put(message)
+        if state != self.last_reading:
+            self.queue.put(message)
+        self.last_reading = state
 
     def enable(self,):
         """ enable the interrupt handler """
@@ -143,40 +154,32 @@ TIMER = TimedEvents(DAY_DEFAULT, NIGHT_DEFAULT)
 
 def system_message(msg):
     """ process system messages"""
-    print("msg.payload=", msg.payload)
+    LOGGER.info(msg.topic+" "+msg.payload.decode('utf-8'))
     if msg.topic == 'diyhas/system/fire':
         if msg.payload == b'ON':
-            print("fire ON")
             MATRIX.set_mode(led8x8controller.FIRE_MODE)
             ALARM.sound_alarm(True)
         else:
-            print("fire OFF")
             MATRIX.set_mode(led8x8controller.FIBONACCI_MODE, True)
             ALARM.sound_alarm(False)
     elif msg.topic == 'diyhas/system/panic':
         if msg.payload == b'ON':
-            print("panic ON")
             MATRIX.set_mode(led8x8controller.PANIC_MODE)
             ALARM.sound_alarm(True)
         else:
-            print("panic OFF")
             MATRIX.set_mode(led8x8controller.FIBONACCI_MODE, True)
             ALARM.sound_alarm(False)
     elif msg.topic == 'diyhas/system/who':
         if msg.payload == b'ON':
-            print("who ON")
             CLOCK.set_mode(ledclock.WHO_MODE)
         else:
-            print("who OFF")
             CLOCK.set_mode(ledclock.TIME_MODE)
     elif msg.topic == 'diyhas/system/security':
-        print(msg.topic, msg.payload)
         if msg.payload == b'ON':
             MATRIX.set_security("ON")
         else:
             MATRIX.set_security("OFF")
     elif msg.topic == MOTION_TOPIC.get_setup():
-        print("motion topic=", msg.topic, " payload=", msg.payload)
         topic = msg.payload.decode('utf-8') + "/motion"
         MOTION_TOPIC.set(topic)
 
@@ -209,7 +212,7 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe("diyhas/+/+/motion", 1)
 
 def on_disconnect(client, userdata, rc):
-    logging.info("disconnecting reason  "  +str(rc))
+    LOGGER.info("disconnecting reason  "+str(rc))
     client.connected_flag=False
     client.disconnect_flag=True
 
