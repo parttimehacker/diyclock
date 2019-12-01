@@ -45,13 +45,17 @@ LOGGER = logging.getLogger("diyclock")
 
 LOGGER.info('Application started')
 
-class MqttTopicConfiguration:
+class Configuration:
     """ motion_topic to avoid global PEP8 """
 
     def __init__(self):
         """ create two topics for this application """
-        self.setup_topic = "diyhas/" + socket.gethostname() + "/setup"
+        self.setup_topic = "diy/" + socket.gethostname() + "/setup"
         self.motion_topic = ""
+        self.pir_pin = 23
+        self.piezo_pin = 4
+        self.mqtt_ip = "192.168.1.53"
+        self.matrix8x8_addr = 0x70
     def set(self, topic):
         """ the motion topic is passed to the app at startup """
         self.motion_topic = topic
@@ -62,13 +66,13 @@ class MqttTopicConfiguration:
         """ the motion topic dynamically set """
         return self.motion_topic
 
-MOTION_TOPIC = MqttTopicConfiguration()
+CONFIG = Configuration()
 
 class MotionController:
     """ motion detection device driver """
 
     def __init__(self, pin):
-        """ capture interrupts on pin 17  """
+        """ capture interrupts """
         self.gpio = GPIO.get_platform_gpio()
         self.queue = queue.Queue()
         self.pin = pin
@@ -125,12 +129,12 @@ class AlarmController:
 CLOCK = ledclock.LedClock()
 CLOCK.run()
 
-DISPLAY = BicolorMatrix8x8.BicolorMatrix8x8(address=0x71)
+DISPLAY = BicolorMatrix8x8.BicolorMatrix8x8(address=CONFIG.matrix8x8_addr)
 
 MATRIX = led8x8controller.Led8x8Controller(DISPLAY)
 MATRIX.run()
 
-ALARM = AlarmController(4)
+ALARM = AlarmController(CONFIG.piezo_pin)
 ALARM.sound_alarm(False)
 
 
@@ -176,46 +180,46 @@ TIMER = TimedEvents(DAY_DEFAULT, NIGHT_DEFAULT)
 def system_message(msg):
     """ process system messages"""
     LOGGER.info(msg.topic+" "+msg.payload.decode('utf-8'))
-    if msg.topic == 'diyhas/system/fire':
+    if msg.topic == 'diy/system/fire':
         if msg.payload == b'ON':
             MATRIX.set_mode(led8x8controller.FIRE_MODE)
             ALARM.sound_alarm(True)
         else:
             MATRIX.set_mode(led8x8controller.FIBONACCI_MODE, True)
             ALARM.sound_alarm(False)
-    elif msg.topic == 'diyhas/system/panic':
+    elif msg.topic == 'diy/system/panic':
         if msg.payload == b'ON':
             MATRIX.set_mode(led8x8controller.PANIC_MODE)
             ALARM.sound_alarm(True)
         else:
             MATRIX.set_mode(led8x8controller.FIBONACCI_MODE, True)
             ALARM.sound_alarm(False)
-    elif msg.topic == 'diyhas/system/who':
+    elif msg.topic == 'diy/system/who':
         if msg.payload == b'ON':
             CLOCK.set_mode(ledclock.WHO_MODE)
         else:
             CLOCK.set_mode(ledclock.TIME_MODE)
-    elif msg.topic == 'diyhas/system/security':
+    elif msg.topic == 'diy/system/security':
         if msg.payload == b'ON':
             MATRIX.set_security("ON")
         else:
             MATRIX.set_security("OFF")
-    elif msg.topic == MOTION_TOPIC.get_setup():
+    elif msg.topic == CONFIG.get_setup():
         topic = msg.payload.decode('utf-8') + "/motion"
-        MOTION_TOPIC.set(topic)
+        CONFIG.set(topic)
 
 
 # use a dispatch model for the subscriptions
 TOPIC_DISPATCH_DICTIONARY = {
-    "diyhas/system/security":
+    "diy/system/security":
         {"method":system_message},
-    "diyhas/system/fire":
+    "diy/system/fire":
         {"method":system_message},
-    "diyhas/system/panic":
+    "diy/system/panic":
         {"method":system_message},
-    "diyhas/system/who":
+    "diy/system/who":
         {"method":system_message},
-    MOTION_TOPIC.get_setup():
+    CONFIG.get_setup():
         {"method":system_message}
     }
 
@@ -225,15 +229,15 @@ TOPIC_DISPATCH_DICTIONARY = {
 def on_connect(client, userdata, flags, rc):
     """ Subscribing in on_connect() means that if we lose the connection and
         reconnect then subscriptions will be renewed. """
-    client.subscribe("diyhas/system/security", 1)
-    client.subscribe("diyhas/system/fire", 1)
-    client.subscribe("diyhas/system/panic", 1)
-    client.subscribe("diyhas/system/who", 1)
-    client.subscribe(MOTION_TOPIC.get_setup(), 1)
-    client.subscribe("diyhas/+/+/motion", 1)
+    client.subscribe("diy/system/security", 1)
+    client.subscribe("diy/system/fire", 1)
+    client.subscribe("diy/system/panic", 1)
+    client.subscribe("diy/system/who", 1)
+    client.subscribe(CONFIG.get_setup(), 1)
+    client.subscribe("diy/+/+/motion", 1)
 
 def on_disconnect(client, userdata, rc):
-    LOGGER.info("disconnecting reason  "+str(rc))
+    LOGGER.info("Disconnected")
     client.connected_flag=False
     client.disconnect_flag=True
 
@@ -246,7 +250,7 @@ def on_message(client, userdata, msg):
         MATRIX.set_mode(led8x8controller.MOTION_MODE, option=msg.topic)
     TOPIC_DISPATCH_DICTIONARY[msg.topic]["method"](msg)
 
-MOTION = MotionController(17)
+MOTION = MotionController(CONFIG.pir_pin)
 MOTION.enable()
 
 if __name__ == '__main__':
@@ -256,7 +260,7 @@ if __name__ == '__main__':
     CLIENT.on_connect = on_connect
     CLIENT.on_disconnect = on_disconnect
     CLIENT.on_message = on_message
-    CLIENT.connect("192.168.1.17", 1883, 60)
+    CLIENT.connect(CONFIG.mqtt_ip, 1883, 60)
     CLIENT.loop_start()
 
     # give network time to startup - hack?
@@ -268,6 +272,6 @@ if __name__ == '__main__':
         time.sleep(0.5)
         if MOTION.detected():
             VALUE = MOTION.get_motion()
-            TOPIC = MOTION_TOPIC.get_motion()
+            TOPIC = CONFIG.get_motion()
             CLIENT.publish(TOPIC, VALUE, 0, True)
         TIMER.check_for_timed_events()

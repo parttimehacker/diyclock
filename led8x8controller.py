@@ -28,7 +28,7 @@ WOPR_MODE = 4
 LIFE_MODE = 5
 MOTION_MODE = 6
 
-logging.config.fileConfig(fname='logging.ini', disable_existing_loggers=False)
+logging.config.fileConfig(fname='/home/an/diyclock/logging.ini', disable_existing_loggers=False)
 
 # Get the logger specified in the file
 LOGGER = logging.getLogger(__name__)

@@ -121,7 +121,7 @@ class LedClock:
 
     def __init__(self,):
         """Create display instance on default I2C address (0x70) and bus number"""
-        self.display = SevenSegment.SevenSegment(address=0x70)
+        self.display = SevenSegment.SevenSegment(address=0x71)
         # Initialize the display. Must be called once before using the display.
         self.display.begin()
         self.brightness = 15
