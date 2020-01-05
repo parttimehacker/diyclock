@@ -1,5 +1,28 @@
 #!/usr/bin/python3
-""" Test Bed for Diyhas System Status class """
+
+""" LED 7 segment clock class """
+
+# MIT License
+#
+# Copyright (c) 2019 Dave Wilson
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
 import time
 import datetime
@@ -21,7 +44,6 @@ logging.config.fileConfig(fname='/home/an/diyclock/logging.ini', disable_existin
 
 # Get the logger specified in the file
 LOGGER = logging.getLogger(__name__)
-
 LOGGER.info('Application started')
 
 class TimeDisplay:
@@ -124,7 +146,7 @@ class LedClock:
         self.display = SevenSegment.SevenSegment(address=0x71)
         # Initialize the display. Must be called once before using the display.
         self.display.begin()
-        self.brightness = 15
+        self.brightness = 12
         self.display.set_brightness(self.brightness)
         self.display.set_blink(0)
         self.mode = TIME_MODE

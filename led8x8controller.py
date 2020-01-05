@@ -1,6 +1,30 @@
 #!/usr/bin/python3
+
 """ Control the display of an Adafruit 8x8 LED backpack """
 
+# MIT License
+#
+# Copyright (c) 2019 Dave Wilson
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+import sys
 import time
 from threading import Thread
 import logging
@@ -19,14 +43,17 @@ GREEN = 1
 RED = 2
 YELLOW = 3
 
-# modes as convenient globals
-IDLE_MODE = 0
-FIRE_MODE = 1
-PANIC_MODE = 2
-FIBONACCI_MODE = 3
-WOPR_MODE = 4
-LIFE_MODE = 5
-MOTION_MODE = 6
+# state machine modes
+IDLE_STATE = 0
+DEMO_STATE = 1
+SECURITY_STATE = 2
+
+# display modes
+FIRE_MODE = 0
+PANIC_MODE = 1
+FIBONACCI_MODE = 2
+WOPR_MODE = 3
+LIFE_MODE = 4
 
 logging.config.fileConfig(fname='/home/an/diyclock/logging.ini', disable_existing_loggers=False)
 
@@ -40,51 +67,52 @@ class ModeController:
 
     def __init__(self,):
         """ create mode control variables """
-        self.security_enabled = "OFF"
+        self.machine_state = DEMO_STATE
         self.current_mode = FIBONACCI_MODE
         self.last_mode = LIFE_MODE
         self.start_time = time.time()
 
-    def set_security(self,state):
-        self.security_enabled = state
+    def set_state(self, state):
+        """ set the display mode """
+        self.machine_state = state
 
-    def get_security(self,):
-        return self.security_enabled
+    def get_state(self,):
+        """ get the display mode """
+        return self.machine_state
 
-    def set(self, mode):
-        """ set or override the mode """
+    def set_mode(self, mode):
+        """ set the display mode """
         self.last_mode = self.current_mode
         self.current_mode = mode
         self.start_time = time.time()
 
-    def restore(self,):
-        """ set or override the mode """
+    def restore_mode(self,):
+        """ set or override the display mode """
         self.current_mode = self.last_mode
         self.start_time = time.time()
 
-    def get(self,):
+    def get_mode(self,):
+        """ get current the display mode """
         return self.current_mode
 
     def evaluate(self,):
         """ initialize and start the fibinnocci display """
-        if self.current_mode != FIRE_MODE:
-            if self.current_mode != PANIC_MODE:
-                if self.current_mode != IDLE_MODE:
-                    now_time = time.time()
-                    elapsed = now_time - self.start_time
-                    if elapsed > 60:
-                        self.last_mode = self.current_mode
-                        self.current_mode = self.current_mode + 1
-                        self.start_time = now_time
-                        if self.current_mode > LIFE_MODE:
-                            self.current_mode = FIBONACCI_MODE
-
+        now_time = time.time()
+        elapsed = now_time - self.start_time
+        if elapsed > 60:
+            self.last_mode = self.current_mode
+            self.current_mode = self.current_mode + 1
+            self.start_time = now_time
+            if self.current_mode > LIFE_MODE:
+                self.current_mode = FIBONACCI_MODE
+#pylint: disable=too-many-instance-attributes
 class Led8x8Controller:
     """ Idle or sleep pattern """
 
     def __init__(self, matrix8x8,):
         """ create initial conditions and saving display and I2C lock """
         self.matrix8x8 = matrix8x8
+        self.matrix8x8.clear()
         self.mode_controller = ModeController()
         self.idle = led8x8idle.Led8x8Idle(self.matrix8x8)
         self.fire = led8x8flash.Led8x8Flash(self.matrix8x8, RED)
@@ -93,57 +121,71 @@ class Led8x8Controller:
         self.motion = led8x8motion.Led8x8Motion(self.matrix8x8)
         self.wopr = led8x8wopr.Led8x8Wopr(self.matrix8x8)
         self.life = led8x8life.Led8x8Life(self.matrix8x8)
+        self.error_count = 0
 
     def reset(self,):
         """ initialize to starting state and set brightness """
-        mode = self.mode_controller.get()
+        self.mode_controller.set_state(DEMO_STATE)
+        self.mode_controller.set_mode(FIBONACCI_MODE)
 
     def display_thread(self,):
         """ display the series as a 64 bit image with alternating colored pixels """
         while True:
-            mode = self.mode_controller.get()
-            if mode == IDLE_MODE:
-                self.idle.display()
-            elif mode == FIRE_MODE:
-                self.fire.display()
-            elif mode == PANIC_MODE:
-                self.panic.display()
-            elif mode == FIBONACCI_MODE:
-                self.fib.display()
-            elif mode == MOTION_MODE:
-                self.motion.display()
-                if self.motion.motions == 0:
-                    self.restore_mode()
-            elif mode == WOPR_MODE:
-                self.wopr.display()
-            elif mode == LIFE_MODE:
-                self.life.display()
-            self.mode_controller.evaluate()
+            try:
+                mode = self.mode_controller.get_mode()
+                if mode == FIRE_MODE:
+                    self.fire.display()
+                elif mode == PANIC_MODE:
+                    self.panic.display()
+                else:
+                    state = self.mode_controller.get_state()
+                    if state == SECURITY_STATE:
+                        self.motion.display()
+                    elif state == IDLE_STATE:
+                        self.idle.display()
+                    else: #demo
+                        if mode == FIBONACCI_MODE:
+                            self.fib.display()
+                        elif mode == WOPR_MODE:
+                            self.wopr.display()
+                        elif mode == LIFE_MODE:
+                            self.life.display()
+                self.mode_controller.evaluate()
+            #pylint: disable=broad-except
+            except Exception as ex:
+                LOGGER.info('Led8x8Controller: thread exception: %s %s', str(ex),
+                            str(self.error_count))
+                self.error_count += 1
+                if self.error_count < 10:
+                    time.sleep(1.0)
+                    self.matrix8x8.begin()
+                else:
+                    break
 
-    def set_mode(self, mode, override=False, option=""):
+    def set_mode(self, mode, override=False):
         """ set display mode """
         if override:
-            self.mode_controller.set(mode)
-        current_mode = self.mode_controller.get()
-        if current_mode == FIRE_MODE or current_mode == PANIC_MODE:
+            self.mode_controller.set_mode(mode)
+        current_mode = self.mode_controller.get_mode()
+        if current_mode in (FIRE_MODE, PANIC_MODE):
             return
-        if mode == MOTION_MODE:
-            # print("motion detected", option)
-            if self.mode_controller.get_security() == "ON":
-                self.mode_controller.set(MOTION_MODE)
-            self.motion.motion_detected(option)
-        else:
-            self.mode_controller.set(mode)
-
-    def set_security(self,state):
-        self.mode_controller.set_security(state)
-
-    def get_security(self,state):
-        return self.mode_controller.get_security()
+        self.mode_controller.set_mode(mode)
 
     def restore_mode(self,):
         """ return to last mode; usually after idle, fire or panic """
-        self.mode = self.mode_controller.restore()
+        self.mode_controller.restore_mode()
+
+    def set_state(self, state):
+        """ set the machine state """
+        self.mode_controller.set_state(state)
+
+    def get_state(self,):
+        """ get the current machine state """
+        return self.mode_controller.get_state()
+
+    def update_motion(self, topic):
+        """ update the countdown timer for the topic (room)"""
+        self.motion.motion_detected(topic)
 
     def run(self):
         """ start the display thread and make it a daemon """
@@ -152,4 +194,4 @@ class Led8x8Controller:
         display.start()
 
 if __name__ == '__main__':
-    exit()
+    sys.exit()

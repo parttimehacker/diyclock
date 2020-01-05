@@ -21,7 +21,7 @@ class Led8x8Motion:
     def __init__(self, matrix8x8):
         """ create initial conditions and saving display and I2C lock """
         self.matrix = matrix8x8
-        self.matrix.begin()
+        # self.matrix.begin()
         self.matrix.set_brightness(BRIGHTNESS)
         self.matrix_image = Image.new('RGB', (8, 8))
         self.matrix_draw = ImageDraw.Draw(self.matrix_image)
@@ -44,21 +44,21 @@ class Led8x8Motion:
         """ initialize to starting state and set brightness """
         self.motions = 8
         self.dispatch = {
-            "diyhas/perimeter/front/motion":
+            "diy/perimeter/front/motion":
                 {"method": self.draw_two, "row" : 0, "column" : 3, "seconds" : 10},
-            "diyhas/main/hallway/motion":
+            "diy/main/hallway/motion":
                 {"method": self.draw_two, "row" : 2, "column" : 3, "seconds" : 10},
-            "diyhas/main/dining/motion":
+            "diy/main/dining/motion":
                 {"method": self.draw_four, "row" : 3, "column" : 0, "seconds" : 10},
-            "diyhas/main/garage/motion":
+            "diy/main/garage/motion":
                 {"method": self.draw_four, "row" : 0, "column" : 6, "seconds" : 10},
-            "diyhas/main/living/motion":
+            "diy/main/living/motion":
                 {"method": self.draw_four, "row" : 3, "column" : 6, "seconds" : 10},
-            "diyhas/upper/guest/motion":
+            "diy/upper/guest/motion":
                 {"method": self.draw_four, "row" : 6, "column" : 0, "seconds" : 10},
-            "diyhas/upper/study/motion":
+            "diy/upper/study/motion":
                 {"method": self.draw_four, "row" : 6, "column" : 6, "seconds" : 10},
-            "diyhas/upper/stairs/motion":
+            "diy/upper/stairs/motion":
                 {"method": self.draw_two, "row" : 5, "column" : 3, "seconds" : 10}
             }
 

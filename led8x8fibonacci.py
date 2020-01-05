@@ -15,7 +15,7 @@ class Led8x8Fibonacci:
     def __init__(self, matrix8x8):
         """ create initial conditions and saving display and I2C lock """
         self.matrix = matrix8x8
-        self.matrix.begin()
+        # self.matrix.begin()
         self.iterations = 0
         self.fib1 = 1
         self.fib2 = 1

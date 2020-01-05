@@ -1,5 +1,7 @@
 #!/usr/bin/python3
+
 """ Diyhas clock, motion detector and piezo alarm """
+
 # MIT License
 #
 # Copyright (c) 2019 Dave Wilson
@@ -21,7 +23,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-#
+
 import time
 import datetime
 import socket
@@ -42,7 +44,6 @@ logging.config.fileConfig(fname='/home/an/diyclock/logging.ini', disable_existin
 
 # Get the logger specified in the file
 LOGGER = logging.getLogger("diyclock")
-
 LOGGER.info('Application started')
 
 class Configuration:
@@ -52,7 +53,7 @@ class Configuration:
         """ create two topics for this application """
         self.setup_topic = "diy/" + socket.gethostname() + "/setup"
         self.motion_topic = ""
-        self.pir_pin = 23
+        self.pir_pin = 24
         self.piezo_pin = 4
         self.mqtt_ip = "192.168.1.53"
         self.matrix8x8_addr = 0x70
@@ -130,6 +131,7 @@ CLOCK = ledclock.LedClock()
 CLOCK.run()
 
 DISPLAY = BicolorMatrix8x8.BicolorMatrix8x8(address=CONFIG.matrix8x8_addr)
+DISPLAY.begin()
 
 MATRIX = led8x8controller.Led8x8Controller(DISPLAY)
 MATRIX.run()
@@ -152,34 +154,35 @@ class TimedEvents:
     def control_lights(self, switch):
         """ dim lights at night or turn up during the day """
         if switch == "Turn On":
-            CLOCK.set_brightness(15)
+            CLOCK.set_brightness(12)
             MATRIX.set_mode(led8x8controller.FIBONACCI_MODE)
             self.lights_are_on = True
         else:
-            CLOCK.set_brightness(2)
-            MATRIX.set_mode(led8x8controller.IDLE_MODE)
+            CLOCK.set_brightness(0)
+            MATRIX.set_state(led8x8controller.IDLE_STATE)
             self.lights_are_on = False
 
     def check_for_timed_events(self,):
         """ turn down displays at night """
         now = datetime.datetime.now().time()
-        if now < self.day:
+        if now <= self.day:
             if self.lights_are_on:
                 self.control_lights("Turn Off")
-        elif now > self.night:
+        elif now >= self.night:
             if self.lights_are_on:
                 self.control_lights("Turn Off")
         else:
             if not self.lights_are_on:
                 self.control_lights("Turn On")
 
-DAY_DEFAULT = datetime.time(5, 1)
-NIGHT_DEFAULT = datetime.time(21, 1)
+DAY_DEFAULT = datetime.time(6, 1)
+NIGHT_DEFAULT = datetime.time(20, 1)
 TIMER = TimedEvents(DAY_DEFAULT, NIGHT_DEFAULT)
 
 def system_message(msg):
     """ process system messages"""
-    LOGGER.info(msg.topic+" "+msg.payload.decode('utf-8'))
+    #pylint: disable=too-many-branches
+    #LOGGER.info(msg.topic+" "+msg.payload.decode('utf-8'))
     if msg.topic == 'diy/system/fire':
         if msg.payload == b'ON':
             MATRIX.set_mode(led8x8controller.FIRE_MODE)
@@ -199,11 +202,21 @@ def system_message(msg):
             CLOCK.set_mode(ledclock.WHO_MODE)
         else:
             CLOCK.set_mode(ledclock.TIME_MODE)
+    elif msg.topic == 'diy/system/demo':
+        if msg.payload == b'ON':
+            MATRIX.set_state(led8x8controller.DEMO_STATE)
+        else:
+            MATRIX.set_state(led8x8controller.IDLE_STATE)
     elif msg.topic == 'diy/system/security':
         if msg.payload == b'ON':
-            MATRIX.set_security("ON")
+            MATRIX.set_state(led8x8controller.SECURITY_STATE)
         else:
-            MATRIX.set_security("OFF")
+            MATRIX.set_state(led8x8controller.DEMO_STATE)
+    elif msg.topic == 'diy/system/silent':
+        if msg.payload == b'ON':
+            MATRIX.set_state(led8x8controller.IDLE_STATE)
+        else:
+            MATRIX.set_state(led8x8controller.DEMO_STATE)
     elif msg.topic == CONFIG.get_setup():
         topic = msg.payload.decode('utf-8') + "/motion"
         CONFIG.set(topic)
@@ -211,11 +224,15 @@ def system_message(msg):
 
 # use a dispatch model for the subscriptions
 TOPIC_DISPATCH_DICTIONARY = {
-    "diy/system/security":
+    "diy/system/demo":
         {"method":system_message},
     "diy/system/fire":
         {"method":system_message},
     "diy/system/panic":
+        {"method":system_message},
+    "diy/system/security":
+        {"method":system_message},
+    "diy/system/silent":
         {"method":system_message},
     "diy/system/who":
         {"method":system_message},
@@ -226,29 +243,36 @@ TOPIC_DISPATCH_DICTIONARY = {
 
 # The callback for when the client receives a CONNACK response from the server.
 # def on_connect(client, userdata, flags, rc):
-def on_connect(client, userdata, flags, rc):
+def on_connect(client, userdata, flags, rcdata):
+    #pylint: disable=unused-argument
     """ Subscribing in on_connect() means that if we lose the connection and
         reconnect then subscriptions will be renewed. """
-    client.subscribe("diy/system/security", 1)
+    client.subscribe("diy/system/demo", 1)
     client.subscribe("diy/system/fire", 1)
     client.subscribe("diy/system/panic", 1)
+    client.subscribe("diy/system/security", 1)
+    client.subscribe("diy/system/silent", 1)
     client.subscribe("diy/system/who", 1)
     client.subscribe(CONFIG.get_setup(), 1)
     client.subscribe("diy/+/+/motion", 1)
 
-def on_disconnect(client, userdata, rc):
+def on_disconnect(client, userdata, rcdata):
+    #pylint: disable=unused-argument
+    """ disconnect detected """
     LOGGER.info("Disconnected")
-    client.connected_flag=False
-    client.disconnect_flag=True
+    client.connected_flag = False
+    client.disconnect_flag = True
 
 
 # The callback for when a PUBLISH message is received from the server.
 # def on_message(client, userdata, msg):
 def on_message(client, userdata, msg):
+    #pylint: disable=unused-argument
     """ dispatch to the appropriate MQTT topic handler """
     if "motion" in msg.topic:
-        MATRIX.set_mode(led8x8controller.MOTION_MODE, option=msg.topic)
-    TOPIC_DISPATCH_DICTIONARY[msg.topic]["method"](msg)
+        MATRIX.update_motion(msg.topic)
+    else:
+        TOPIC_DISPATCH_DICTIONARY[msg.topic]["method"](msg)
 
 MOTION = MotionController(CONFIG.pir_pin)
 MOTION.enable()
@@ -269,9 +293,10 @@ if __name__ == '__main__':
     # loop forever checking for interrupts or timed events
 
     while True:
-        time.sleep(0.5)
+        time.sleep(1.0)
         if MOTION.detected():
             VALUE = MOTION.get_motion()
             TOPIC = CONFIG.get_motion()
             CLIENT.publish(TOPIC, VALUE, 0, True)
+            # print("bil: motion detected")
         TIMER.check_for_timed_events()
