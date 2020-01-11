@@ -106,6 +106,7 @@ class ModeController:
             if self.current_mode > LIFE_MODE:
                 self.current_mode = FIBONACCI_MODE
 #pylint: disable=too-many-instance-attributes
+
 class Led8x8Controller:
     """ Idle or sleep pattern """
 
@@ -150,7 +151,7 @@ class Led8x8Controller:
                             self.wopr.display()
                         elif mode == LIFE_MODE:
                             self.life.display()
-                self.mode_controller.evaluate()
+                        self.mode_controller.evaluate()
             #pylint: disable=broad-except
             except Exception as ex:
                 LOGGER.info('Led8x8Controller: thread exception: %s %s', str(ex),
