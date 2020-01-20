@@ -155,7 +155,7 @@ class TimedEvents:
         """ dim lights at night or turn up during the day """
         if switch == "Turn On":
             CLOCK.set_brightness(12)
-            MATRIX.set_mode(led8x8controller.FIBONACCI_MODE)
+            MATRIX.set_state(led8x8controller.DEMO_STATE)
             self.lights_are_on = True
         else:
             CLOCK.set_brightness(0)
